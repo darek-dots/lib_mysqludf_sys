@@ -385,6 +385,10 @@ my_bool sys_eval_init(
 void sys_eval_deinit(
 	UDF_INIT *initid
 ){
+    if (initid->ptr != NULL) {
+        free(initid->ptr);
+        initid->ptr = NULL;
+    }	
 }
 char* sys_eval(
 	UDF_INIT *initid
@@ -398,26 +402,28 @@ char* sys_eval(
 	char line[1024];
 	unsigned long outlen, linelen;
 
-	result = malloc(1);
+	result = NULL;
 	outlen = 0;
 
 	pipe = popen(args->args[0], "r");
 
 	while (fgets(line, sizeof(line), pipe) != NULL) {
 		linelen = strlen(line);
-		result = realloc(result, outlen + linelen);
+		result = realloc(result, outlen + linelen + 1);
 		strncpy(result + outlen, line, linelen);
 		outlen = outlen + linelen;
 	}
 
 	pclose(pipe);
 
-	if (!(*result) || result == NULL) {
+	if (result == NULL) {
 		*is_null = 1;
 	} else {
 		result[outlen] = 0x00;
-		*length = strlen(result);
 	}
+
+	*length = outlen;
+	initid->ptr = result;  // needed to allow MariaDB to free memory
 
 	return result;
 }
